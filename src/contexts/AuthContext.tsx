@@ -38,17 +38,50 @@ const MOCK_USERS = [
   }
 ];
 
+// Key for local storage
+const USER_STORAGE_KEY = 'safeguard70e_user';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load user from localStorage on initial render and set up storage event listener
   useEffect(() => {
-    // Check for stored user in localStorage on initial load
-    const storedUser = localStorage.getItem('safeguard70e_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const loadUserFromStorage = () => {
+      try {
+        const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        }
+      } catch (error) {
+        console.error('Error loading user from storage:', error);
+        // Clear potentially corrupted storage
+        localStorage.removeItem(USER_STORAGE_KEY);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    // Initial load
+    loadUserFromStorage();
+    
+    // Listen for storage changes in other tabs/windows
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === USER_STORAGE_KEY) {
+        if (e.newValue) {
+          setUser(JSON.parse(e.newValue));
+        } else {
+          setUser(null);
+        }
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -59,8 +92,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (foundUser) {
         // Remove password from user object before storing
         const { password, ...userWithoutPassword } = foundUser;
+        
+        // Update state
         setUser(userWithoutPassword);
-        localStorage.setItem('safeguard70e_user', JSON.stringify(userWithoutPassword));
+        
+        // Store in localStorage with proper error handling
+        try {
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userWithoutPassword));
+        } catch (e) {
+          console.error('Error saving to localStorage:', e);
+        }
       } else {
         throw new Error('Invalid credentials');
       }
@@ -74,7 +115,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('safeguard70e_user');
+    try {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    } catch (e) {
+      console.error('Error removing from localStorage:', e);
+    }
   };
 
   const value = {

@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Assets from "./pages/Assets";
+import NewAsset from "./pages/NewAsset"; // Import the new component
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 
@@ -34,6 +35,13 @@ const App = () => (
           <Route path="/assets" element={
             <ProtectedRoute>
               <Assets />
+            </ProtectedRoute>
+          } />
+          
+          {/* Add new route for creating assets */}
+          <Route path="/assets/new" element={
+            <ProtectedRoute>
+              <NewAsset />
             </ProtectedRoute>
           } />
           
