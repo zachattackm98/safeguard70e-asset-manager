@@ -9,7 +9,113 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      assets: {
+        Row: {
+          assigned_to: string | null
+          classification: string
+          created_at: string
+          created_by: string
+          id: string
+          issue_date: string
+          last_test_date: string
+          name: string
+          next_test_date: string
+          serial_number: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          classification: string
+          created_at?: string
+          created_by: string
+          id?: string
+          issue_date: string
+          last_test_date: string
+          name: string
+          next_test_date: string
+          serial_number: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          classification?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          issue_date?: string
+          last_test_date?: string
+          name?: string
+          next_test_date?: string
+          serial_number?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          asset_id: string
+          date_uploaded: string
+          id: string
+          name: string
+          uploaded_by: string
+          url: string
+        }
+        Insert: {
+          asset_id: string
+          date_uploaded?: string
+          id?: string
+          name: string
+          uploaded_by: string
+          url: string
+        }
+        Update: {
+          asset_id?: string
+          date_uploaded?: string
+          id?: string
+          name?: string
+          uploaded_by?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
