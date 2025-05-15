@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,12 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Custom status colors for compliance status
+				status: {
+					active: '#4ade80',    // Green for Active
+					neardue: '#fbbf24',   // Yellow/Amber for Near Due
+					expired: '#f43f5e',   // Red for Expired
 				}
 			},
 			borderRadius: {
