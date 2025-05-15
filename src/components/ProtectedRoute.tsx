@@ -15,7 +15,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
-  
+
   // Show loading state
   if (isLoading) {
     return (
@@ -24,17 +24,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       </div>
     );
   }
-  
-  // If not authenticated, redirect to login
+
+  // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
-  // If role check is required and fails
+
+  // Check role requirements if specified
   if (requiredRole && user?.role !== requiredRole) {
     return <Navigate to="/unauthorized" replace />;
   }
-  
+
   // Render the protected content
   return <AppLayout>{children}</AppLayout>;
 };

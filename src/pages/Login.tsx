@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,20 +12,9 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
-  
-  // Get the intended destination from location state, or default to dashboard
-  const from = location.state?.from?.pathname || '/dashboard';
-  
-  // If already authenticated, redirect to the intended destination
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate(from, { replace: true });
-    }
-  }, [isAuthenticated, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +22,7 @@ const Login = () => {
 
     try {
       await login(email, password);
-      // The redirection will be handled by the useEffect above
+      navigate('/dashboard');
       toast({
         title: 'Login successful',
         description: 'Welcome to Safeguard70E',
@@ -44,7 +33,8 @@ const Login = () => {
         title: 'Login failed',
         description: 'Please check your credentials and try again.',
       });
-      setIsSubmitting(false);  // Only reset submission state on error
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
