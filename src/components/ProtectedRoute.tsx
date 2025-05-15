@@ -1,6 +1,6 @@
 
-import React, { useEffect, useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppLayout from './AppLayout';
 
@@ -15,29 +15,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
-  const [isAuthorized, setIsAuthorized] = useState(false);
   
-  useEffect(() => {
-    // Wait until auth check is complete
-    if (!isLoading) {
-      // If not authenticated, redirect
-      if (!isAuthenticated) {
-        navigate('/login', { state: { from: location }, replace: true });
-        return;
-      }
-      
-      // If role check is required and fails
-      if (requiredRole && user?.role !== requiredRole) {
-        navigate('/unauthorized', { replace: true });
-        return;
-      }
-      
-      // User passes all checks
-      setIsAuthorized(true);
-    }
-  }, [isLoading, isAuthenticated, user, requiredRole, navigate, location]);
-
   // Show loading state
   if (isLoading) {
     return (
@@ -47,16 +25,16 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
   
-  // Don't render anything until we know the user is authorized
-  // This prevents any flicker of protected content
-  if (!isAuthorized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-lg">Checking permissions...</p>
-      </div>
-    );
+  // If not authenticated, redirect to login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
-
+  
+  // If role check is required and fails
+  if (requiredRole && user?.role !== requiredRole) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+  
   // Render the protected content
   return <AppLayout>{children}</AppLayout>;
 };
