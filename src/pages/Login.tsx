@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,15 +16,21 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [signupError, setSignupError] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
   const { login, signUp, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
-  // If already authenticated, redirect to dashboard
+  // Get the intended destination from location state, or default to dashboard
+  const from = location.state?.from || '/dashboard';
+  
+  // If already authenticated and not currently redirecting, redirect to dashboard
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      navigate('/dashboard');
+    if (isAuthenticated && !isLoading && !redirecting) {
+      setRedirecting(true);
+      navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, navigate, redirecting]);
 
   // Fill in admin test credentials
   const fillAdminCredentials = () => {
@@ -46,6 +51,7 @@ const Login = () => {
 
     try {
       await login(email, password);
+      // Don't navigate here - let the useEffect handle it
     } catch (error: any) {
       setLoginError(error.message || 'Login failed. Please try again.');
     } finally {
@@ -86,6 +92,18 @@ const Login = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-lg">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated, don't show login form
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-lg">Already logged in. Redirecting...</p>
         </div>
       </div>
     );
