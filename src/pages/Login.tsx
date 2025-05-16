@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,9 +18,22 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [signupError, setSignupError] = useState<string | null>(null);
-  const { login, signUp } = useAuth();
+  const { login, signUp, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Fill in test credentials for demo purposes
+  const fillTestCredentials = () => {
+    setEmail('admin@example.com');
+    setPassword('password123');
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +158,18 @@ const Login = () => {
                       required
                     />
                   </div>
+
+                  <div className="pt-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      className="w-full"
+                      onClick={fillTestCredentials}
+                    >
+                      Use Test Credentials
+                    </Button>
+                  </div>
                 </CardContent>
                 <CardFooter>
                   <Button 
@@ -231,11 +256,6 @@ const Login = () => {
             </Card>
           </TabsContent>
         </Tabs>
-        
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          <p>For testing purposes, use:</p>
-          <p>Email: admin@example.com / Password: password123</p>
-        </div>
       </div>
     </div>
   );

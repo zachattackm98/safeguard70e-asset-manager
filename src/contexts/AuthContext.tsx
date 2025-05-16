@@ -154,15 +154,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Special login for admin user for testing
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      // Special handling for the test admin account
+      if (email === 'admin@example.com' && password === 'password123') {
+        // Create a mock admin user
+        const adminUser: User = {
+          id: 'admin-test-id',
+          name: 'Admin User',
+          email: 'admin@example.com',
+          role: 'admin' as UserRole
+        };
+        
+        setUser(adminUser);
+        
+        toast({
+          title: 'Login successful',
+          description: 'Welcome back, Admin!',
+        });
+        
+        return;
+      }
+      
+      // For regular users, proceed with Supabase auth
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
+      
     } catch (error: any) {
       console.error('Login error:', error);
       toast({
@@ -178,8 +201,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      // If using test admin account, just clear the user state
+      if (user?.email === 'admin@example.com') {
+        setUser(null);
+        toast({
+          title: 'Logged out',
+          description: 'You have been signed out successfully.',
+        });
+        return;
+      }
+      
+      // For regular users, sign out through Supabase
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
     } catch (error) {
       console.error('Logout error:', error);
       toast({
