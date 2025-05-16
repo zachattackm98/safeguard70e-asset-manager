@@ -54,8 +54,8 @@ const Assets = () => {
           </p>
         </div>
         {user?.role === 'admin' && (
-          <Button as={Link} to="/assets/new">
-            Add New Asset
+          <Button asChild>
+            <Link to="/assets/new">Add New Asset</Link>
           </Button>
         )}
       </div>
