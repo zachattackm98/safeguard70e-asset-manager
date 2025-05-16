@@ -34,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Helper to save admin user to localStorage
   const saveAdminUser = (adminUser: User) => {
     localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(adminUser));
+    console.log('Admin user saved to storage');
   };
 
   // Helper to get admin user from localStorage
@@ -41,7 +42,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const storedUser = localStorage.getItem(ADMIN_USER_STORAGE_KEY);
     if (storedUser) {
       try {
-        return JSON.parse(storedUser);
+        const parsedUser = JSON.parse(storedUser);
+        console.log('Admin user loaded from storage', parsedUser);
+        return parsedUser;
       } catch (e) {
         console.error("Error parsing stored admin user:", e);
         localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
@@ -50,71 +53,91 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   };
 
-  // Check for an existing session on initial load - simplified approach
+  // Check for an existing session on initial load
   useEffect(() => {
+    console.log('AuthProvider initialized');
+    
     // First check for admin user in localStorage
     const adminUser = getAdminUserFromStorage();
     if (adminUser) {
+      console.log('Admin user found in storage, setting user state');
       setUser(adminUser);
       setIsLoading(false);
       return;
     }
     
+    let mounted = true;
+    
     // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
-        
-        if (session?.user) {
-          // For authenticated Supabase users, fetch their profile
-          // Use setTimeout to prevent potential auth deadlock
-          setTimeout(async () => {
-            try {
-              const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('name, email, role')
-                .eq('id', session.user.id)
-                .single();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session?.user?.id);
+      
+      if (!mounted) return;
+      
+      if (session?.user) {
+        // Use setTimeout to prevent potential auth deadlock
+        setTimeout(async () => {
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('name, email, role')
+              .eq('id', session.user.id)
+              .single();
 
-              if (profileError) {
-                console.error('Error fetching user profile:', profileError);
-                setUser(null);
-              } else if (profileData) {
-                const userData = {
-                  id: session.user.id,
-                  name: profileData.name,
-                  email: profileData.email,
-                  role: profileData.role as UserRole,
-                };
-                setUser(userData);
-              }
-            } catch (error) {
-              console.error('Error in profile fetch:', error);
+            if (!mounted) return;
+
+            if (profileError) {
+              console.error('Error fetching user profile:', profileError);
               setUser(null);
+            } else if (profileData) {
+              const userData = {
+                id: session.user.id,
+                name: profileData.name,
+                email: profileData.email,
+                role: profileData.role as UserRole,
+              };
+              console.log('Setting user from profile data:', userData);
+              setUser(userData);
             }
-          }, 0);
-        } else {
-          // No session means no authenticated user
+          } catch (error) {
+            console.error('Error in profile fetch:', error);
+            if (mounted) setUser(null);
+          } finally {
+            if (mounted) setIsLoading(false);
+          }
+        }, 0);
+      } else {
+        // No session means no authenticated user
+        if (mounted) {
+          console.log('No session, clearing user');
           setUser(null);
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
-    );
-
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.id);
-      
-      if (!session) {
-        setIsLoading(false);
-        return;
-      }
-      
-      // Don't duplicate profile fetch logic here, the onAuthStateChange will handle it
     });
 
-    // Cleanup subscription when component unmounts
+    // Initial session check
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Initial session check:', session?.user?.id);
+        
+        if (!session) {
+          if (mounted) setIsLoading(false);
+        }
+        // Don't duplicate profile fetch logic here, the onAuthStateChange will handle it
+      } catch (error) {
+        console.error('Error checking session:', error);
+        if (mounted) setIsLoading(false);
+      }
+    };
+    
+    checkSession();
+
+    // Cleanup subscription and mounted flag when component unmounts
     return () => {
+      console.log('AuthProvider cleanup');
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -180,6 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Special handling for the test admin account
       if (email === 'admin@example.com' && password === 'password123') {
+        console.log('Using test admin account');
         // Create a mock admin user
         const adminUser: User = {
           id: 'admin-test-id',
@@ -201,6 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // For regular users, proceed with Supabase auth
+      console.log('Attempting regular login with Supabase');
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -225,6 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // If using test admin account, clear localStorage and user state
       if (user?.email === 'admin@example.com') {
+        console.log('Logging out admin test user');
         localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
         setUser(null);
         toast({
@@ -235,6 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // For regular users, sign out through Supabase
+      console.log('Signing out regular user through Supabase');
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
