@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,7 +36,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         navigate('/unauthorized', { replace: true });
       }
     }
-  }, [isLoading, isAuthenticated, user, requiredRole, navigate, location]);
+  // Important: Remove location from dependency array to avoid redirect loops
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, isAuthenticated, user, requiredRole, navigate]);
 
   // Show loading state while auth is being checked
   if (isLoading) {
