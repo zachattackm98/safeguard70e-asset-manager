@@ -50,23 +50,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   };
 
-  // Check for an existing session on initial load
+  // Check for an existing session on initial load - simplified approach
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        // First check if we have an admin user in localStorage
-        const adminUser = getAdminUserFromStorage();
-        if (adminUser) {
-          setUser(adminUser);
-          setIsLoading(false);
-          return;
-        }
-
-        // Set up auth state change listener first
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            if (session && session.user) {
-              // Fetch additional user data from profiles
+    // First check for admin user in localStorage
+    const adminUser = getAdminUserFromStorage();
+    if (adminUser) {
+      setUser(adminUser);
+      setIsLoading(false);
+      return;
+    }
+    
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        
+        if (session?.user) {
+          // For authenticated Supabase users, fetch their profile
+          // Use setTimeout to prevent potential auth deadlock
+          setTimeout(async () => {
+            try {
               const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
                 .select('name, email, role')
@@ -85,50 +88,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
                 setUser(userData);
               }
-            } else {
+            } catch (error) {
+              console.error('Error in profile fetch:', error);
               setUser(null);
             }
-            setIsLoading(false);
-          }
-        );
-
-        // Then check for existing session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session && session.user) {
-          // Fetch additional user data from profiles
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('name, email, role')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError) {
-            console.error('Error fetching user profile:', profileError);
-            setUser(null);
-          } else if (profileData) {
-            const userData = {
-              id: session.user.id,
-              name: profileData.name,
-              email: profileData.email,
-              role: profileData.role as UserRole,
-            };
-            setUser(userData);
-          }
+          }, 0);
+        } else {
+          // No session means no authenticated user
+          setUser(null);
         }
-        
-        setIsLoading(false);
-
-        return () => {
-          subscription.unsubscribe();
-        };
-      } catch (error) {
-        console.error('Session check error:', error);
         setIsLoading(false);
       }
-    };
+    );
 
-    checkSession();
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.id);
+      
+      if (!session) {
+        setIsLoading(false);
+        return;
+      }
+      
+      // Don't duplicate profile fetch logic here, the onAuthStateChange will handle it
+    });
+
+    // Cleanup subscription when component unmounts
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {

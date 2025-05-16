@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppLayout from './AppLayout';
@@ -16,7 +16,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
-  // Show loading state
+  // Show loading state while auth is being checked
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -28,17 +28,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Redirect to login if not authenticated
+  // Check if user is authenticated
   if (!isAuthenticated) {
+    console.log('Not authenticated, redirecting to login');
+    // Save the location they were trying to access for potential redirect after login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Check role requirements if specified
+  // Check role requirements
   if (requiredRole && user?.role !== requiredRole) {
+    console.log(`Role ${user?.role} does not match required role ${requiredRole}`);
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Render the protected content
+  // User is authenticated and has the correct role, render the protected content
   return <AppLayout>{children}</AppLayout>;
 };
 
