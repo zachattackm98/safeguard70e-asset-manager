@@ -8,12 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2 } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [signupError, setSignupError] = useState<string | null>(null);
   const { login, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -21,6 +25,7 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setLoginError(null);
 
     try {
       await login(email, password);
@@ -29,8 +34,21 @@ const Login = () => {
         title: 'Login successful',
         description: 'Welcome to Safeguard70E',
       });
-    } catch (error) {
-      // Error is handled in the login function
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      if (error.status === 400) {
+        setLoginError('Invalid email or password');
+      } else if (error.status === 429) {
+        setLoginError('Too many login attempts. Please try again later.');
+      } else if (!navigator.onLine) {
+        setLoginError('You appear to be offline. Please check your internet connection.');
+      } else if (error.message?.includes('timeout') || error.status === 504) {
+        setLoginError('The server took too long to respond. Please try again later.');
+      } else {
+        setLoginError(error.message || 'Login failed. Please try again.');
+      }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -38,13 +56,41 @@ const Login = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSignupError(null);
+
+    // Basic validation
+    if (password.length < 6) {
+      setSignupError('Password must be at least 6 characters long');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       await signUp(email, password, name);
-      // Don't navigate, let user login after signing up
-      setIsSubmitting(false);
-    } catch (error) {
-      // Error is handled in the signUp function
+      toast({
+        title: 'Account created',
+        description: 'Please sign in with your new account.',
+      });
+      
+      // Switch to the login tab after successful signup
+      const loginTab = document.querySelector('[data-state="inactive"][data-value="login"]') as HTMLElement;
+      if (loginTab) loginTab.click();
+      
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      
+      if (error.status === 429) {
+        setSignupError('Too many signup attempts. Please try again later.');
+      } else if (!navigator.onLine) {
+        setSignupError('You appear to be offline. Please check your internet connection.');
+      } else if (error.message?.includes('timeout') || error.status === 504) {
+        setSignupError('The server took too long to respond. Please try again later.');
+      } else if (error.message?.includes('already')) {
+        setSignupError('This email is already registered. Please try logging in instead.');
+      } else {
+        setSignupError(error.message || 'Signup failed. Please try again or use a different email.');
+      }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -73,6 +119,11 @@ const Login = () => {
               </CardHeader>
               <form onSubmit={handleLogin}>
                 <CardContent className="space-y-4">
+                  {loginError && (
+                    <Alert variant="destructive" className="text-sm py-2">
+                      <AlertDescription>{loginError}</AlertDescription>
+                    </Alert>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input 
@@ -101,7 +152,12 @@ const Login = () => {
                     className="w-full" 
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? 'Signing in...' : 'Sign In'}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : 'Sign In'}
                   </Button>
                 </CardFooter>
               </form>
@@ -118,6 +174,11 @@ const Login = () => {
               </CardHeader>
               <form onSubmit={handleSignUp}>
                 <CardContent className="space-y-4">
+                  {signupError && (
+                    <Alert variant="destructive" className="text-sm py-2">
+                      <AlertDescription>{signupError}</AlertDescription>
+                    </Alert>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Full Name</Label>
                     <Input 
@@ -149,6 +210,7 @@ const Login = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                     />
+                    <p className="text-xs text-muted-foreground">Password must be at least 6 characters long</p>
                   </div>
                 </CardContent>
                 <CardFooter>
@@ -157,7 +219,12 @@ const Login = () => {
                     className="w-full" 
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? 'Creating Account...' : 'Create Account'}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating Account...
+                      </>
+                    ) : 'Create Account'}
                   </Button>
                 </CardFooter>
               </form>

@@ -102,21 +102,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, name: string) => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-          },
+      // Add retry logic for network issues
+      let retries = 2;
+      let error = null;
+      
+      while (retries >= 0) {
+        try {
+          const result = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                name,
+              },
+            }
+          });
+          
+          if (result.error) throw result.error;
+          
+          toast({
+            title: 'Account created',
+            description: 'Please sign in with your new account.',
+          });
+          
+          return;
+        } catch (err: any) {
+          error = err;
+          // Only retry network or timeout errors
+          if (err.status !== 504 && err.message !== 'Load failed') {
+            throw err;
+          }
+          retries--;
+          // Wait before retrying
+          if (retries >= 0) await new Promise(r => setTimeout(r, 1000));
         }
-      });
-
+      }
+      
+      // If we've exhausted retries, throw the last error
       if (error) throw error;
-      toast({
-        title: 'Account created',
-        description: 'Please sign in with your new account.',
-      });
+      
     } catch (error: any) {
       console.error('Signup error:', error);
       toast({
