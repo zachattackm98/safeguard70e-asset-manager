@@ -15,6 +15,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Local storage key for admin user
+const ADMIN_USER_STORAGE_KEY = 'safeguard70e_admin_user';
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -28,10 +31,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  // Helper to save admin user to localStorage
+  const saveAdminUser = (adminUser: User) => {
+    localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(adminUser));
+  };
+
+  // Helper to get admin user from localStorage
+  const getAdminUserFromStorage = (): User | null => {
+    const storedUser = localStorage.getItem(ADMIN_USER_STORAGE_KEY);
+    if (storedUser) {
+      try {
+        return JSON.parse(storedUser);
+      } catch (e) {
+        console.error("Error parsing stored admin user:", e);
+        localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
+      }
+    }
+    return null;
+  };
+
   // Check for an existing session on initial load
   useEffect(() => {
     const checkSession = async () => {
       try {
+        // First check if we have an admin user in localStorage
+        const adminUser = getAdminUserFromStorage();
+        if (adminUser) {
+          setUser(adminUser);
+          setIsLoading(false);
+          return;
+        }
+
         // Set up auth state change listener first
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           async (event, session) => {
@@ -47,12 +77,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.error('Error fetching user profile:', profileError);
                 setUser(null);
               } else if (profileData) {
-                setUser({
+                const userData = {
                   id: session.user.id,
                   name: profileData.name,
                   email: profileData.email,
                   role: profileData.role as UserRole,
-                });
+                };
+                setUser(userData);
               }
             } else {
               setUser(null);
@@ -76,12 +107,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Error fetching user profile:', profileError);
             setUser(null);
           } else if (profileData) {
-            setUser({
+            const userData = {
               id: session.user.id,
               name: profileData.name,
               email: profileData.email,
               role: profileData.role as UserRole,
-            });
+            };
+            setUser(userData);
           }
         }
         
@@ -168,6 +200,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: 'admin' as UserRole
         };
         
+        // Save admin user to localStorage for persistence
+        saveAdminUser(adminUser);
         setUser(adminUser);
         
         toast({
@@ -201,8 +235,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      // If using test admin account, just clear the user state
+      // If using test admin account, clear localStorage and user state
       if (user?.email === 'admin@example.com') {
+        localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
         setUser(null);
         toast({
           title: 'Logged out',
@@ -215,6 +250,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
+      toast({
+        title: 'Logged out',
+        description: 'You have been signed out successfully.',
+      });
     } catch (error) {
       console.error('Logout error:', error);
       toast({
