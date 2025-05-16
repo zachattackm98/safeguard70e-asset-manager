@@ -49,8 +49,8 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
-              {/* Redirect root to dashboard */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Redirect root to login */}
+              <Route path="/" element={<Navigate to="/login" replace />} />
               
               {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />

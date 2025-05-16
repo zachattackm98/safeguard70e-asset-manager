@@ -72,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
+    console.log("Login attempt for:", email);
     setIsLoading(true);
     try {
       // Mock authentication logic
@@ -104,6 +105,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Derived state for authentication status
   const isAuthenticated = user !== null;
+  
+  console.log("AuthProvider current state:", { isAuthenticated, isLoading, user });
   
   const value = {
     user,
