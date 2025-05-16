@@ -38,8 +38,16 @@ const App = () => (
               <Route path="/unauthorized" element={<Unauthorized />} />
               
               {/* Protected routes */}
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/assets" element={
+                <ProtectedRoute>
+                  <Assets />
+                </ProtectedRoute>
+              } />
               
               {/* Redirect root to dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

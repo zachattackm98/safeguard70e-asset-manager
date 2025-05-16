@@ -10,8 +10,10 @@ interface AuthContextType {
   isLoading: boolean;
 }
 
+// Create the context with a default undefined value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Hook to use the auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -19,6 +21,9 @@ export const useAuth = () => {
   }
   return context;
 };
+
+// Storage key constant
+const USER_STORAGE_KEY = 'safeguard70e_user';
 
 // Mock users for demo
 const MOCK_USERS = [
@@ -38,9 +43,6 @@ const MOCK_USERS = [
   }
 ];
 
-// Storage key constant
-const USER_STORAGE_KEY = 'safeguard70e_user';
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,21 +50,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Load user from localStorage on mount
   useEffect(() => {
     console.log("AuthProvider: Loading user from localStorage");
-    try {
-      const storedUser = localStorage.getItem(USER_STORAGE_KEY);
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        console.log("User found in localStorage:", parsedUser);
-        setUser(parsedUser);
-      } else {
-        console.log("No user found in localStorage");
+    const loadUser = () => {
+      try {
+        const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          console.log("User found in localStorage:", parsedUser);
+          setUser(parsedUser);
+        } else {
+          console.log("No user found in localStorage");
+        }
+      } catch (error) {
+        console.error("Failed to parse stored user:", error);
+        localStorage.removeItem(USER_STORAGE_KEY);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to parse stored user:", error);
-      localStorage.removeItem(USER_STORAGE_KEY);
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    loadUser();
   }, []);
 
   const login = async (email: string, password: string) => {

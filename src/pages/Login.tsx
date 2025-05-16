@@ -18,7 +18,7 @@ const Login = () => {
   const { toast } = useToast();
   
   // Get the intended destination or default to dashboard
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from || '/dashboard';
 
   console.log("Login page rendered:", { isAuthenticated, isLoading, from });
   
@@ -26,7 +26,7 @@ const Login = () => {
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
       console.log("Already authenticated, redirecting from login to:", from);
-      navigate(from, { replace: true });
+      navigate(typeof from === 'string' ? from : '/dashboard', { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate, from]);
 
@@ -41,7 +41,7 @@ const Login = () => {
         title: 'Login successful',
         description: 'Welcome to Safeguard70E',
       });
-      navigate(from, { replace: true });
+      navigate(typeof from === 'string' ? from : '/dashboard', { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       toast({
