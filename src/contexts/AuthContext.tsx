@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { User, UserRole } from '../types/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,9 +14,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Local storage key for admin user
+// Local storage keys
 const ADMIN_USER_STORAGE_KEY = 'safeguard70e_admin_user';
-// Local storage key for auth state
 const AUTH_STATE_KEY = 'safeguard70e_auth_state';
 
 export const useAuth = () => {
@@ -34,26 +32,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
   const authInitialized = useRef(false);
   const authSubscription = useRef<{ unsubscribe: () => void } | null>(null);
-
-  // Helper to save admin user to localStorage
+  
+  // Helper to save admin user to localStorage - memoized to remain stable
   const saveAdminUser = useCallback((adminUser: User) => {
     localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(adminUser));
-    // Set a flag that we're using admin auth
     localStorage.setItem(AUTH_STATE_KEY, 'admin');
-    console.log('Admin user saved to storage');
   }, []);
 
-  // Helper to get admin user from localStorage
+  // Helper to get admin user from localStorage - memoized to remain stable
   const getAdminUserFromStorage = useCallback((): User | null => {
     const storedUser = localStorage.getItem(ADMIN_USER_STORAGE_KEY);
     const authState = localStorage.getItem(AUTH_STATE_KEY);
     
-    // Only use admin user if that's our auth state
     if (storedUser && authState === 'admin') {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        console.log('Admin user loaded from storage', parsedUser);
-        return parsedUser;
+        return JSON.parse(storedUser);
       } catch (e) {
         console.error("Error parsing stored admin user:", e);
         localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
@@ -63,118 +56,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   }, []);
 
-  // Set up auth state management
+  // Initialize auth state once on mount
   useEffect(() => {
-    console.log('AuthProvider initialized');
+    let mounted = true;
     
     // Prevent duplicate initialization
     if (authInitialized.current) return;
     authInitialized.current = true;
     
-    // Determine if we should use admin auth or Supabase auth
-    const adminUser = getAdminUserFromStorage();
-    const authState = localStorage.getItem(AUTH_STATE_KEY);
-    
-    if (adminUser && authState === 'admin') {
-      console.log('Using admin authentication');
-      setUser(adminUser);
-      setIsLoading(false);
-      return;
-    }
-    
-    // If not using admin auth, set up Supabase auth
-    let mounted = true;
-    console.log('Setting up Supabase authentication');
-    
-    // Fix: Correct handling of the subscription object
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
-      
-      if (!mounted) return;
-      
-      if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
-        setUser(null);
-        setIsLoading(false);
-        localStorage.removeItem(AUTH_STATE_KEY);
-        return;
-      }
-      
-      if (session?.user) {
-        // Use setTimeout to prevent potential auth deadlock
-        setTimeout(async () => {
-          try {
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('name, email, role')
-              .eq('id', session.user.id)
-              .single();
-
-            if (!mounted) return;
-
-            if (profileError) {
-              console.error('Error fetching user profile:', profileError);
-              setUser(null);
-            } else if (profileData) {
-              const userData = {
-                id: session.user.id,
-                name: profileData.name,
-                email: profileData.email,
-                role: profileData.role as UserRole,
-              };
-              console.log('Setting user from profile data:', userData);
-              localStorage.setItem(AUTH_STATE_KEY, 'supabase');
-              setUser(userData);
-            }
-          } catch (error) {
-            console.error('Error in profile fetch:', error);
-            if (mounted) setUser(null);
-          } finally {
-            if (mounted) setIsLoading(false);
+    const initializeAuth = async () => {
+      try {
+        // Check for admin user first
+        const adminUser = getAdminUserFromStorage();
+        const authState = localStorage.getItem(AUTH_STATE_KEY);
+        
+        if (adminUser && authState === 'admin') {
+          // Using admin authentication
+          if (mounted) {
+            setUser(adminUser);
+            setIsLoading(false);
           }
-        }, 0);
-      } else {
-        // No session means no authenticated user
+          return;
+        }
+        
+        // Set up Supabase auth listener - only if we're not using admin auth
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (!mounted) return;
+          
+          if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setIsLoading(false);
+            localStorage.removeItem(AUTH_STATE_KEY);
+            return;
+          }
+          
+          if (session?.user) {
+            try {
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('name, email, role')
+                .eq('id', session.user.id)
+                .single();
+  
+              if (!mounted) return;
+  
+              if (profileError) {
+                console.error('Error fetching user profile:', profileError);
+                setUser(null);
+              } else if (profileData) {
+                const userData = {
+                  id: session.user.id,
+                  name: profileData.name,
+                  email: profileData.email,
+                  role: profileData.role as UserRole,
+                };
+                localStorage.setItem(AUTH_STATE_KEY, 'supabase');
+                setUser(userData);
+              }
+            } catch (error) {
+              console.error('Error in profile fetch:', error);
+              if (mounted) setUser(null);
+            } finally {
+              if (mounted) setIsLoading(false);
+            }
+          } else {
+            if (mounted) {
+              setUser(null);
+              setIsLoading(false);
+              localStorage.removeItem(AUTH_STATE_KEY);
+            }
+          }
+        });
+        
+        // Store subscription for cleanup
+        authSubscription.current = data.subscription;
+        
+        // Initial session check
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session && mounted) {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
         if (mounted) {
-          console.log('No session, clearing user');
           setUser(null);
           setIsLoading(false);
-          localStorage.removeItem(AUTH_STATE_KEY);
         }
-      }
-    });
-
-    // Fix: Store the subscription for cleanup
-    authSubscription.current = subscription;
-
-    // Initial session check
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('Initial session check:', session?.user?.id);
-        
-        if (!session) {
-          if (mounted) setIsLoading(false);
-        }
-        // Don't duplicate profile fetch logic here, the onAuthStateChange will handle it
-      } catch (error) {
-        console.error('Error checking session:', error);
-        if (mounted) setIsLoading(false);
       }
     };
     
-    checkSession();
-
-    // Cleanup subscription and mounted flag when component unmounts
+    initializeAuth();
+    
+    // Cleanup function
     return () => {
-      console.log('AuthProvider cleanup');
       mounted = false;
       if (authSubscription.current) {
         authSubscription.current.unsubscribe();
         authSubscription.current = null;
       }
     };
-  }, [getAdminUserFromStorage]);
+  }, []); // Empty dependency array to run only once
 
   const signUp = async (email: string, password: string, name: string) => {
     setIsLoading(true);
@@ -231,7 +213,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Special login for admin user for testing
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -241,7 +222,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Special handling for the test admin account
       if (email === 'admin@example.com' && password === 'password123') {
-        console.log('Using test admin account');
         // Create a mock admin user
         const adminUser: User = {
           id: 'admin-test-id',
@@ -264,7 +244,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // For regular users, proceed with Supabase auth
-      console.log('Attempting regular login with Supabase');
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -272,7 +251,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
       
-      // Don't set loading false here, auth listener will handle it
+      // Auth state listener will handle setting the user
       
     } catch (error: any) {
       console.error('Login error:', error);
@@ -288,26 +267,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      // If using test admin account, clear localStorage and user state
       const authState = localStorage.getItem(AUTH_STATE_KEY);
       
       if (authState === 'admin') {
-        console.log('Logging out admin test user');
+        // Admin user logout
         localStorage.removeItem(ADMIN_USER_STORAGE_KEY);
         localStorage.removeItem(AUTH_STATE_KEY);
         setUser(null);
-        toast({
-          title: 'Logged out',
-          description: 'You have been signed out successfully.',
-        });
-        return;
+      } else {
+        // Regular user logout through Supabase
+        localStorage.removeItem(AUTH_STATE_KEY);
+        await supabase.auth.signOut();
       }
-      
-      // For regular users, sign out through Supabase
-      console.log('Signing out regular user through Supabase');
-      localStorage.removeItem(AUTH_STATE_KEY);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
       
       toast({
         title: 'Logged out',
@@ -323,7 +294,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Provide a stable value reference to prevent unnecessary re-renders
+  // Stable context value to prevent unnecessary re-renders
   const authContextValue = React.useMemo(() => ({
     user,
     login,
