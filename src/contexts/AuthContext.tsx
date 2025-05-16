@@ -45,27 +45,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from localStorage only once at component mount
+  // Load user from localStorage on mount
   useEffect(() => {
-    console.log("AuthProvider: Checking for stored user");
-    const loadUser = () => {
+    console.log("AuthProvider: Loading user from localStorage");
+    try {
       const storedUser = localStorage.getItem(USER_STORAGE_KEY);
       if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          console.log("User found in localStorage:", parsedUser);
-          setUser(parsedUser);
-        } catch (error) {
-          console.error("Failed to parse stored user:", error);
-          localStorage.removeItem(USER_STORAGE_KEY);
-        }
+        const parsedUser = JSON.parse(storedUser);
+        console.log("User found in localStorage:", parsedUser);
+        setUser(parsedUser);
       } else {
         console.log("No user found in localStorage");
       }
+    } catch (error) {
+      console.error("Failed to parse stored user:", error);
+      localStorage.removeItem(USER_STORAGE_KEY);
+    } finally {
       setIsLoading(false);
-    };
-
-    loadUser();
+    }
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -75,12 +72,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const foundUser = MOCK_USERS.find(u => u.email === email && u.password === password);
       if (foundUser) {
         // Remove password from user object before storing
-        const { password, ...userWithoutPassword } = foundUser;
+        const { password: _, ...userWithoutPassword } = foundUser;
         console.log("Login successful for:", userWithoutPassword);
         
         // Update state and localStorage
         setUser(userWithoutPassword);
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userWithoutPassword));
+        return;
       } else {
         throw new Error('Invalid credentials');
       }
@@ -109,7 +107,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading
   };
 
-  console.log("AuthProvider state:", { isAuthenticated, isLoading });
-  
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -18,7 +18,9 @@ const Login = () => {
   const { toast } = useToast();
   
   // Get the intended destination or default to dashboard
-  const from = location.state?.from || '/dashboard';
+  const from = location.state?.from?.pathname || '/dashboard';
+
+  console.log("Login page rendered:", { isAuthenticated, isLoading, from });
   
   // Redirect if already authenticated
   useEffect(() => {
@@ -35,11 +37,11 @@ const Login = () => {
     try {
       await login(email, password);
       console.log("Login successful, redirecting to:", from);
-      navigate(from, { replace: true });
       toast({
         title: 'Login successful',
         description: 'Welcome to Safeguard70E',
       });
+      navigate(from, { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       toast({
@@ -51,11 +53,6 @@ const Login = () => {
       setIsSubmitting(false);
     }
   };
-
-  // Don't render the login form if we're already authenticated
-  if (isAuthenticated && !isLoading) {
-    return null;
-  }
 
   // Show loading indicator while checking auth state
   if (isLoading) {

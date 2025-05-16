@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppLayout from './AppLayout';
@@ -15,28 +15,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
-
-  useEffect(() => {
-    console.log("ProtectedRoute rendered:", { 
-      isAuthenticated, 
-      isLoading, 
-      path: location.pathname,
-      user: user?.email
-    });
-  }, [isAuthenticated, isLoading, location.pathname, user]);
+  
+  console.log("ProtectedRoute checking auth:", { isAuthenticated, isLoading, path: location.pathname });
 
   // Show loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-lg">Loading...</p>
+        <p className="text-lg">Loading authentication...</p>
       </div>
     );
   }
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
-    console.log("Not authenticated, redirecting to login");
+    console.log("Not authenticated, redirecting to login from:", location.pathname);
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
@@ -47,7 +40,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // Render the protected content
-  console.log("Rendering protected content");
   return <AppLayout>{children}</AppLayout>;
 };
 

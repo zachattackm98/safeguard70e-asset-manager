@@ -26,8 +26,8 @@ const queryClient = new QueryClient({
 // Using StrictMode to catch potential issues
 const App = () => (
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
             <Toaster />
@@ -38,17 +38,8 @@ const App = () => (
               <Route path="/unauthorized" element={<Unauthorized />} />
               
               {/* Protected routes */}
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/assets" element={
-                <ProtectedRoute>
-                  <Assets />
-                </ProtectedRoute>
-              } />
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
               
               {/* Redirect root to dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -58,8 +49,8 @@ const App = () => (
             </Routes>
           </TooltipProvider>
         </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   </StrictMode>
 );
 
