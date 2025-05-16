@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { User, UserRole } from '../types/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,11 +30,11 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
-  const initCalled = useRef(false);
   const authSubscription = useRef<{ unsubscribe: () => void } | null>(null);
   
-  // Helper to save admin user to localStorage - memoized to remain stable
+  // Helper to save admin user to localStorage
   const saveAdminUser = useCallback((adminUser: User) => {
     try {
       localStorage.setItem(ADMIN_USER_STORAGE_KEY, JSON.stringify(adminUser));
@@ -43,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Helper to get admin user from localStorage - memoized to remain stable
+  // Helper to get admin user from localStorage
   const getAdminUserFromStorage = useCallback((): User | null => {
     try {
       const storedUser = localStorage.getItem(ADMIN_USER_STORAGE_KEY);
@@ -64,40 +65,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   }, []);
 
-  // Initialize auth state once on mount
-  const initializeAuth = useCallback(async () => {
-    if (initCalled.current) return;
-    initCalled.current = true;
+  // Setup Supabase auth listener - separate from initialization to avoid race conditions
+  useEffect(() => {
+    console.log('Setting up auth listener...');
     
-    console.log('Initializing auth...');
-    try {
-      setIsLoading(true);
+    // Clean up any existing subscription
+    if (authSubscription.current) {
+      authSubscription.current.unsubscribe();
+    }
+    
+    // Set up new subscription
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
       
-      // Check for admin user first
-      let adminUser: User | null = null;
-      let authState: string | null = null;
-      
-      try {
-        adminUser = getAdminUserFromStorage();
-        authState = localStorage.getItem(AUTH_STATE_KEY);
-      } catch (e) {
-        console.error("Error accessing localStorage:", e);
-      }
-      
-      if (adminUser && authState === 'admin') {
-        // Using admin authentication
-        console.log('Found admin user in localStorage');
-        setUser(adminUser);
-        setIsLoading(false);
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        try {
+          localStorage.removeItem(AUTH_STATE_KEY);
+        } catch (e) {
+          console.error("Error removing auth state from localStorage:", e);
+        }
         return;
       }
       
-      console.log('Checking Supabase session...');
-      // Get initial session
-      const { data: { session } } = await supabase.auth.getSession();
-      
       if (session?.user) {
-        console.log('Found existing Supabase session');
         try {
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
@@ -115,19 +106,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: profileData.email,
               role: profileData.role as UserRole,
             };
+            
             try {
               localStorage.setItem(AUTH_STATE_KEY, 'supabase');
             } catch (e) {
               console.error("Error saving auth state to localStorage:", e);
             }
+            
             setUser(userData);
           }
         } catch (error) {
           console.error('Error in profile fetch:', error);
           setUser(null);
         }
-      } else {
-        console.log('No existing session found');
+      } else if (event !== 'INITIAL_SESSION') { 
+        // Don't clear user for initial session event
         setUser(null);
         try {
           localStorage.removeItem(AUTH_STATE_KEY);
@@ -135,22 +128,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error("Error removing auth state from localStorage:", e);
         }
       }
+    });
+    
+    // Store subscription for cleanup
+    authSubscription.current = data.subscription;
+    
+    // Cleanup on unmount
+    return () => {
+      if (authSubscription.current) {
+        authSubscription.current.unsubscribe();
+        authSubscription.current = null;
+      }
+    };
+  }, []); // Empty dependency array means this runs once on mount
+
+  // Initialize auth state once on mount - after subscription is set up
+  useEffect(() => {
+    const initializeAuth = async () => {
+      if (isInitialized) return;
       
-      // Set up Supabase auth listener
-      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event);
+      console.log('Initializing auth...');
+      try {
+        setIsLoading(true);
         
-        if (event === 'SIGNED_OUT') {
-          setUser(null);
-          try {
-            localStorage.removeItem(AUTH_STATE_KEY);
-          } catch (e) {
-            console.error("Error removing auth state from localStorage:", e);
-          }
+        // Check for admin user first
+        const adminUser = getAdminUserFromStorage();
+        const authState = localStorage.getItem(AUTH_STATE_KEY);
+        
+        if (adminUser && authState === 'admin') {
+          // Using admin authentication
+          console.log('Found admin user in localStorage');
+          setUser(adminUser);
+          setIsInitialized(true);
+          setIsLoading(false);
           return;
         }
         
+        console.log('Checking Supabase session...');
+        // Get initial session
+        const { data: { session } } = await supabase.auth.getSession();
+        
         if (session?.user) {
+          console.log('Found existing Supabase session');
           try {
             const { data: profileData, error: profileError } = await supabase
               .from('profiles')
@@ -168,13 +187,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 email: profileData.email,
                 role: profileData.role as UserRole,
               };
-              
               try {
                 localStorage.setItem(AUTH_STATE_KEY, 'supabase');
               } catch (e) {
                 console.error("Error saving auth state to localStorage:", e);
               }
-              
               setUser(userData);
             }
           } catch (error) {
@@ -182,6 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(null);
           }
         } else {
+          console.log('No existing session found');
           setUser(null);
           try {
             localStorage.removeItem(AUTH_STATE_KEY);
@@ -189,31 +207,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error("Error removing auth state from localStorage:", e);
           }
         }
-      });
-      
-      // Store subscription for cleanup
-      authSubscription.current = data.subscription;
-      
-    } catch (error) {
-      console.error('Error initializing auth:', error);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getAdminUserFromStorage]);
-
-  // Call initialize once on mount
-  useEffect(() => {
-    initializeAuth();
-    
-    // Cleanup function
-    return () => {
-      if (authSubscription.current) {
-        authSubscription.current.unsubscribe();
-        authSubscription.current = null;
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setUser(null);
+      } finally {
+        setIsInitialized(true);
+        setIsLoading(false);
       }
     };
-  }, [initializeAuth]);
+
+    initializeAuth();
+  }, [getAdminUserFromStorage, isInitialized]);
 
   const signUp = async (email: string, password: string, name: string) => {
     setIsLoading(true);
@@ -304,7 +308,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: 'Welcome back, Admin!',
         });
         
-        setIsLoading(false);
         return;
       }
       
@@ -318,6 +321,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       // Auth state listener will handle setting the user
+      
+      toast({
+        title: 'Login successful',
+        description: 'Welcome back!',
+      });
       
     } catch (error: any) {
       console.error('Login error:', error);

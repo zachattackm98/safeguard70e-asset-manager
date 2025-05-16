@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppLayout from './AppLayout';
@@ -15,35 +16,46 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const hasCheckedAuth = useRef(false);
   
   useEffect(() => {
-    // We'll use a single reference to the current pathname to avoid changing dependencies
+    // Skip navigation if auth check is still loading
+    if (isLoading) return;
+    
+    // Skip if navigation has already happened to prevent loops
+    if (hasCheckedAuth.current) return;
+    
     const currentPath = location.pathname;
     
-    // Only run navigation logic when auth is fully initialized and not loading
-    if (!isLoading) {
-      console.log('ProtectedRoute auth check on path:', currentPath, {
-        isAuthenticated,
-        userRole: user?.role,
-        requiredRole
+    console.log('ProtectedRoute auth check on path:', currentPath, {
+      isAuthenticated,
+      userRole: user?.role,
+      requiredRole
+    });
+    
+    if (!isAuthenticated) {
+      console.log('Not authenticated, redirecting to login from:', currentPath);
+      // Navigate with replace to prevent building up history
+      navigate('/login', { 
+        state: { from: { pathname: currentPath } }, 
+        replace: true 
       });
-      
-      if (!isAuthenticated) {
-        console.log('Not authenticated, redirecting to login from:', currentPath);
-        // Navigate with replace to prevent building up history
-        navigate('/login', { 
-          state: { from: { pathname: currentPath } }, 
-          replace: true 
-        });
-      } else if (requiredRole && user?.role !== requiredRole) {
-        console.log(`Role ${user?.role} does not match required role ${requiredRole}, path:`, currentPath);
-        navigate('/unauthorized', { replace: true });
-      }
+    } else if (requiredRole && user?.role !== requiredRole) {
+      console.log(`Role ${user?.role} does not match required role ${requiredRole}, path:`, currentPath);
+      navigate('/unauthorized', { replace: true });
     }
-  // Importantly, we DON'T include location or location.pathname in dependencies
-  // This prevents re-running the effect when location changes due to our own navigation
+    
+    // Mark that we've checked auth to prevent loops
+    hasCheckedAuth.current = true;
+    
+  // Deliberately exclude location from dependencies to prevent redirect loops
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, isAuthenticated, user?.role, requiredRole, navigate]);
+
+  // Reset the check flag when authentication status changes
+  useEffect(() => {
+    hasCheckedAuth.current = false;
+  }, [isAuthenticated]);
 
   // Show loading state while auth is being checked
   if (isLoading) {
@@ -62,8 +74,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <AppLayout>{children}</AppLayout>;
   }
   
-  // For all other cases, render null to let the useEffect handle navigation
-  // This prevents render cycles that could cause infinite redirects
+  // For all other cases, render null while the useEffect handles navigation
   return null;
 };
 

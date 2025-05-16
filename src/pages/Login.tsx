@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,17 +21,30 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const redirectAttempted = useRef(false);
   
   // Get the intended destination from location state, or default to dashboard
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
 
-  // Redirect if already authenticated, but avoid redirecting during auth loading
+  // Handle redirects only once auth is fully loaded and not during loading
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    // Skip redirect if still loading or already attempted
+    if (isLoading || redirectAttempted.current) return;
+    
+    // Only redirect if authenticated
+    if (isAuthenticated) {
       console.log(`Already authenticated, redirecting to ${from}`);
+      redirectAttempted.current = true;
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, navigate, isLoading, from]);
+
+  // Reset redirect flag when auth status changes
+  useEffect(() => {
+    if (!isAuthenticated) {
+      redirectAttempted.current = false;
+    }
+  }, [isAuthenticated]);
 
   // Fill in test credentials for demo purposes
   const fillTestCredentials = () => {
@@ -113,13 +125,25 @@ const Login = () => {
     }
   };
 
-  // If auth is still loading, don't show the login page yet
+  // If auth is still loading, show a loading indicator
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-lg">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated, don't render login form - redirect will happen via useEffect
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-lg">Already logged in, redirecting...</p>
         </div>
       </div>
     );
