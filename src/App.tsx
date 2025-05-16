@@ -30,31 +30,37 @@ const App = () => (
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
-            <Toaster />
-            <Sonner />
             <Routes>
-              {/* Public routes */}
+              {/* Public routes - these should be accessible without authentication */}
               <Route path="/login" element={<Login />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
               
               {/* Protected routes */}
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/assets" element={
-                <ProtectedRoute>
-                  <Assets />
-                </ProtectedRoute>
-              } />
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/assets" 
+                element={
+                  <ProtectedRoute>
+                    <Assets />
+                  </ProtectedRoute>
+                } 
+              />
               
-              {/* Redirect root to login */}
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              {/* Redirect root to dashboard or login based on auth status */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               
               {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <Toaster />
+            <Sonner />
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>

@@ -27,7 +27,7 @@ const Login = () => {
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
       console.log("Already authenticated, redirecting from login to:", from);
-      navigate(typeof from === 'string' ? from : '/dashboard', { replace: true });
+      navigate(from, { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate, from]);
 
@@ -42,7 +42,7 @@ const Login = () => {
         title: 'Login successful',
         description: 'Welcome to Safeguard70E',
       });
-      navigate(typeof from === 'string' ? from : '/dashboard', { replace: true });
+      navigate(from, { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       toast({
@@ -54,15 +54,6 @@ const Login = () => {
       setIsSubmitting(false);
     }
   };
-  
-  // If still loading authentication state, show loading indicator
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg">Loading authentication...</p>
-      </div>
-    );
-  }
   
   // Demo credential hints
   const demoCredentials = [
