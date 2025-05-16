@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2 } from 'lucide-react';
 
 const Login = () => {
@@ -19,36 +19,23 @@ const Login = () => {
   const [signupError, setSignupError] = useState<string | null>(null);
   const { login, signUp, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { toast } = useToast();
-  const redirectAttempted = useRef(false);
   
-  // Get the intended destination from location state, or default to dashboard
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
-
-  // Handle redirects only once auth is fully loaded and not during loading
+  // If already authenticated, redirect to dashboard
   useEffect(() => {
-    // Skip redirect if still loading or already attempted
-    if (isLoading || redirectAttempted.current) return;
-    
-    // Only redirect if authenticated
-    if (isAuthenticated) {
-      console.log(`Already authenticated, redirecting to ${from}`);
-      redirectAttempted.current = true;
-      navigate(from, { replace: true });
+    if (isAuthenticated && !isLoading) {
+      navigate('/dashboard');
     }
-  }, [isAuthenticated, navigate, isLoading, from]);
+  }, [isAuthenticated, isLoading, navigate]);
 
-  // Reset redirect flag when auth status changes
-  useEffect(() => {
-    if (!isAuthenticated) {
-      redirectAttempted.current = false;
-    }
-  }, [isAuthenticated]);
-
-  // Fill in test credentials for demo purposes
-  const fillTestCredentials = () => {
+  // Fill in admin test credentials
+  const fillAdminCredentials = () => {
     setEmail('admin@example.com');
+    setPassword('password123');
+  };
+
+  // Fill in technician test credentials
+  const fillTechCredentials = () => {
+    setEmail('tech@example.com');
     setPassword('password123');
   };
 
@@ -59,25 +46,8 @@ const Login = () => {
 
     try {
       await login(email, password);
-      // Let the useEffect handle navigation after auth state changes
-      toast({
-        title: 'Login successful',
-        description: 'Welcome to Safeguard70E',
-      });
     } catch (error: any) {
-      console.error('Login error:', error);
-      
-      if (error.status === 400) {
-        setLoginError('Invalid email or password');
-      } else if (error.status === 429) {
-        setLoginError('Too many login attempts. Please try again later.');
-      } else if (!navigator.onLine) {
-        setLoginError('You appear to be offline. Please check your internet connection.');
-      } else if (error.message?.includes('timeout') || error.status === 504) {
-        setLoginError('The server took too long to respond. Please try again later.');
-      } else {
-        setLoginError(error.message || 'Login failed. Please try again.');
-      }
+      setLoginError(error.message || 'Login failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -97,29 +67,13 @@ const Login = () => {
 
     try {
       await signUp(email, password, name);
-      toast({
-        title: 'Account created',
-        description: 'Please sign in with your new account.',
-      });
       
       // Switch to the login tab after successful signup
       const loginTab = document.querySelector('[data-state="inactive"][data-value="login"]') as HTMLElement;
       if (loginTab) loginTab.click();
       
     } catch (error: any) {
-      console.error('Signup error:', error);
-      
-      if (error.status === 429) {
-        setSignupError('Too many signup attempts. Please try again later.');
-      } else if (!navigator.onLine) {
-        setSignupError('You appear to be offline. Please check your internet connection.');
-      } else if (error.message?.includes('timeout') || error.status === 504) {
-        setSignupError('The server took too long to respond. Please try again later.');
-      } else if (error.message?.includes('already')) {
-        setSignupError('This email is already registered. Please try logging in instead.');
-      } else {
-        setSignupError(error.message || 'Signup failed. Please try again or use a different email.');
-      }
+      setSignupError(error.message || 'Signup failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -131,19 +85,7 @@ const Login = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-lg">Checking authentication...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If already authenticated, don't render login form - redirect will happen via useEffect
-  if (isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-lg">Already logged in, redirecting...</p>
+          <p className="mt-4 text-lg">Loading...</p>
         </div>
       </div>
     );
@@ -200,15 +142,22 @@ const Login = () => {
                     />
                   </div>
 
-                  <div className="pt-2">
+                  <div className="flex flex-col space-y-2 pt-2">
                     <Button 
                       type="button" 
                       variant="outline" 
                       size="sm"
-                      className="w-full"
-                      onClick={fillTestCredentials}
+                      onClick={fillAdminCredentials}
                     >
-                      Use Test Credentials
+                      Use Admin Credentials
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={fillTechCredentials}
+                    >
+                      Use Tech Credentials
                     </Button>
                   </div>
                 </CardContent>
