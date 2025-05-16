@@ -86,8 +86,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
     console.log('Setting up Supabase authentication');
     
-    // Set up auth state change listener
-    authSubscription.current = supabase.auth.onAuthStateChange((event, session) => {
+    // Fix: Correct handling of the subscription object
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event, session?.user?.id);
       
       if (!mounted) return;
@@ -143,6 +143,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     });
+
+    // Fix: Store the subscription for cleanup
+    authSubscription.current = subscription;
 
     // Initial session check
     const checkSession = async () => {
