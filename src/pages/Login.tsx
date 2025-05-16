@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,16 +18,21 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [signupError, setSignupError] = useState<string | null>(null);
-  const { login, signUp, isAuthenticated } = useAuth();
+  const { login, signUp, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  
+  // Get the intended destination from location state, or default to dashboard
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated, but avoid redirecting during auth loading
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    if (!isLoading && isAuthenticated) {
+      console.log(`Already authenticated, redirecting to ${from}`);
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, isLoading, from]);
 
   // Fill in test credentials for demo purposes
   const fillTestCredentials = () => {
@@ -42,7 +47,7 @@ const Login = () => {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      // Let the useEffect handle navigation after auth state changes
       toast({
         title: 'Login successful',
         description: 'Welcome to Safeguard70E',
@@ -107,6 +112,18 @@ const Login = () => {
       setIsSubmitting(false);
     }
   };
+
+  // If auth is still loading, don't show the login page yet
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-lg">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">

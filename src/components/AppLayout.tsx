@@ -33,13 +33,18 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-    toast({
-      title: 'Logged out',
-      description: 'You have been successfully logged out.',
-    });
+  // Modified to avoid automatic navigation
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Let the AuthProvider handle the navigation through its state changes
+      toast({
+        title: 'Logged out',
+        description: 'You have been successfully logged out.',
+      });
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   const toggleSidebar = () => {

@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppLayout from './AppLayout';
 
@@ -15,14 +15,29 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
-
-  console.log('ProtectedRoute check:', { 
-    isAuthenticated, 
-    isLoading, 
-    userRole: user?.role,
-    requiredRole,
-    path: location.pathname
-  });
+  const navigate = useNavigate();
+  
+  // Use an effect to prevent layout thrashing during auth checks
+  useEffect(() => {
+    // Only run navigation logic when not loading, prevents unnecessary redirections
+    if (!isLoading) {
+      console.log('ProtectedRoute auth check completed:', { 
+        isAuthenticated, 
+        userRole: user?.role,
+        requiredRole,
+        path: location.pathname
+      });
+      
+      if (!isAuthenticated) {
+        console.log('Not authenticated, redirecting to login from:', location.pathname);
+        // Navigate programmatically to prevent chain redirections
+        navigate('/login', { state: { from: location }, replace: true });
+      } else if (requiredRole && user?.role !== requiredRole) {
+        console.log(`Role ${user?.role} does not match required role ${requiredRole}`);
+        navigate('/unauthorized', { replace: true });
+      }
+    }
+  }, [isLoading, isAuthenticated, user, requiredRole, navigate, location]);
 
   // Show loading state while auth is being checked
   if (isLoading) {
@@ -36,22 +51,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Check if user is authenticated
-  if (!isAuthenticated) {
-    console.log('Not authenticated, redirecting to login from:', location.pathname);
-    // Save the location they were trying to access for potential redirect after login
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  // If auth check is complete and user is authenticated with correct role, render content
+  if (isAuthenticated && (!requiredRole || user?.role === requiredRole)) {
+    return <AppLayout>{children}</AppLayout>;
   }
-
-  // Check role requirements
-  if (requiredRole && user?.role !== requiredRole) {
-    console.log(`Role ${user?.role} does not match required role ${requiredRole}`);
-    return <Navigate to="/unauthorized" replace />;
-  }
-
-  // User is authenticated and has the correct role, render the protected content
-  console.log('Auth check passed, rendering protected content');
-  return <AppLayout>{children}</AppLayout>;
+  
+  // For all other cases, render null to let the useEffect handle navigation
+  // This prevents render cycles that could cause infinite redirects
+  return null;
 };
 
 export default ProtectedRoute;
