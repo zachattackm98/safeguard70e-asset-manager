@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,21 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  
+  // Get the intended destination or default to dashboard
+  const from = location.state?.from || '/dashboard';
+  
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      console.log("Already authenticated, redirecting from login to:", from);
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,12 +34,14 @@ const Login = () => {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      console.log("Login successful, redirecting to:", from);
+      navigate(from, { replace: true });
       toast({
         title: 'Login successful',
         description: 'Welcome to Safeguard70E',
       });
     } catch (error) {
+      console.error("Login error:", error);
       toast({
         variant: 'destructive',
         title: 'Login failed',
@@ -37,6 +51,20 @@ const Login = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Don't render the login form if we're already authenticated
+  if (isAuthenticated && !isLoading) {
+    return null;
+  }
+
+  // Show loading indicator while checking auth state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-lg">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">

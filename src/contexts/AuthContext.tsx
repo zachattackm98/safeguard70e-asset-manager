@@ -38,17 +38,34 @@ const MOCK_USERS = [
   }
 ];
 
+// Storage key constant
+const USER_STORAGE_KEY = 'safeguard70e_user';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load user from localStorage only once at component mount
   useEffect(() => {
-    // Check for stored user in localStorage on initial load
-    const storedUser = localStorage.getItem('safeguard70e_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    console.log("AuthProvider: Checking for stored user");
+    const loadUser = () => {
+      const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          console.log("User found in localStorage:", parsedUser);
+          setUser(parsedUser);
+        } catch (error) {
+          console.error("Failed to parse stored user:", error);
+          localStorage.removeItem(USER_STORAGE_KEY);
+        }
+      } else {
+        console.log("No user found in localStorage");
+      }
+      setIsLoading(false);
+    };
+
+    loadUser();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -59,8 +76,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (foundUser) {
         // Remove password from user object before storing
         const { password, ...userWithoutPassword } = foundUser;
+        console.log("Login successful for:", userWithoutPassword);
+        
+        // Update state and localStorage
         setUser(userWithoutPassword);
-        localStorage.setItem('safeguard70e_user', JSON.stringify(userWithoutPassword));
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userWithoutPassword));
       } else {
         throw new Error('Invalid credentials');
       }
@@ -73,17 +93,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    console.log("Logging out");
     setUser(null);
-    localStorage.removeItem('safeguard70e_user');
+    localStorage.removeItem(USER_STORAGE_KEY);
   };
 
+  // Derived state for authentication status
+  const isAuthenticated = user !== null;
+  
   const value = {
     user,
     login,
     logout,
-    isAuthenticated: !!user,
+    isAuthenticated,
     isLoading
   };
 
+  console.log("AuthProvider state:", { isAuthenticated, isLoading });
+  
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
