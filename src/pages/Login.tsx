@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,22 +16,8 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [signupError, setSignupError] = useState<string | null>(null);
-  const [redirecting, setRedirecting] = useState(false);
-  const { login, signUp, isAuthenticated, isLoading } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { login, signUp } = useAuth();
   
-  // Get the intended destination from location state, or default to dashboard
-  const from = location.state?.from || '/dashboard';
-  
-  // If already authenticated and not currently redirecting, redirect to dashboard
-  useEffect(() => {
-    if (isAuthenticated && !isLoading && !redirecting) {
-      setRedirecting(true);
-      navigate('/dashboard', { replace: true });
-    }
-  }, [isAuthenticated, isLoading, navigate, redirecting]);
-
   // Fill in admin test credentials
   const fillAdminCredentials = () => {
     setEmail('admin@example.com');
@@ -51,7 +37,7 @@ const Login = () => {
 
     try {
       await login(email, password);
-      // Don't navigate here - let the useEffect handle it
+      // Auth Provider will handle the state update and PublicRoute will handle redirect
     } catch (error: any) {
       setLoginError(error.message || 'Login failed. Please try again.');
     } finally {
@@ -84,30 +70,6 @@ const Login = () => {
       setIsSubmitting(false);
     }
   };
-
-  // If auth is still loading, show a loading indicator
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-lg">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If already authenticated, don't show login form
-  if (isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-lg">Already logged in. Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">

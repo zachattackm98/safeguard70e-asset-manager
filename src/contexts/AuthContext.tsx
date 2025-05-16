@@ -30,18 +30,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Load user from localStorage on mount - only once
+  // Initialize auth state from localStorage only once on mount
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem(USER_STORAGE_KEY);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    const initAuth = () => {
+      try {
+        const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
+      } catch (e) {
+        console.error('Error loading user from localStorage:', e);
+        localStorage.removeItem(USER_STORAGE_KEY); // Clear corrupted data
+      } finally {
+        setIsLoading(false); // Always set loading to false when done
       }
-    } catch (e) {
-      console.error('Error loading user from localStorage:', e);
-    } finally {
-      setIsLoading(false);
-    }
+    };
+    
+    // Run initialization
+    initAuth();
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
@@ -157,7 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Stable context value to prevent unnecessary re-renders
+  // Create a stable context value to prevent unnecessary re-renders
   const authContextValue = React.useMemo(() => ({
     user,
     login,
